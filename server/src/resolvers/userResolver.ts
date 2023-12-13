@@ -1,16 +1,16 @@
-import {Arg, Mutation, Query, Resolver} from 'type-graphql'
+import {Arg, Mutation, Resolver} from 'type-graphql'
 import {User} from "../models/User";
 import argon2 from 'argon2'
 import {UserMutationResponse} from "../types/UserMutationResponse";
 import {RegisterInput} from "../types/RegisterInput";
 import {validateRegisterInput} from "../utils/validateRegisterInput";
 import {LoginInput} from "../types/LoginInput";
+import {createToken} from "../utils/auth";
 
 
 @Resolver()
 export class UserResolver {
     @Mutation((_returns) => UserMutationResponse)
-    @Query((_returns) => UserMutationResponse)
     async register(
         @Arg('registerInput') registerInput: RegisterInput,
     ): Promise<UserMutationResponse> {
@@ -58,7 +58,6 @@ export class UserResolver {
 
 
     @Mutation((_returns) => UserMutationResponse)
-    @Query((_returns) => UserMutationResponse)
     async login(
         @Arg('loginInput') loginInput: LoginInput,
     ): Promise<UserMutationResponse> {
@@ -79,7 +78,7 @@ export class UserResolver {
                 };
             }
             const passwordValid = await argon2.verify(existingUser.password, password)
-            if(!passwordValid){
+            if (!passwordValid) {
                 return {
                     code: 400,
                     success: false,
@@ -97,7 +96,8 @@ export class UserResolver {
                 code: 200,
                 success: true,
                 message: 'User login successful',
-                user: existingUser
+                user: existingUser,
+                accessToken: createToken(existingUser)
             }
         } catch
             (err) {

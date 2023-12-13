@@ -1,16 +1,19 @@
 import * as process from "process";
 import 'reflect-metadata'
-import express, {Application, Express} from 'express'
+import express from 'express'
 import {DataSource} from 'typeorm'
 import {User} from "./models/User";
 import {ApolloServer} from 'apollo-server-express'
 import {buildSchema} from "type-graphql";
-import {ApolloServerPluginLandingPageGraphQLPlayground} from 'apollo-server-core'
+import {ApolloServerPluginDrainHttpServer, ApolloServerPluginLandingPageGraphQLPlayground} from 'apollo-server-core'
 import {Post} from "./models/Post";
 import {UserResolver} from "./resolvers/userResolver";
+import {HelloResolver} from "./resolvers/helloResolver";
 
 require('dotenv').config();
 
+const app: any = express()
+const PORT = process.env.PORT || 4000
 const AppDataSource = new DataSource({
     type: "mysql",
     host: "localhost",
@@ -22,23 +25,22 @@ const AppDataSource = new DataSource({
     synchronize: true,
     logging: false,
 })
-const app = express()
+AppDataSource.initialize().catch((error) => console.log(error))
 
-AppDataSource.initialize()
-    .then(async () => {
-        // here you can start to work with your database
-        console.log("Data Source has been initialized!");
 
-        const apolloServer = new ApolloServer({
-            schema: await buildSchema({resolvers: [UserResolver], validate: false}),
-            plugins: [ApolloServerPluginLandingPageGraphQLPlayground()] // Khoi tao GUI cho graphQL
-        });
-        await apolloServer.start();
-        apolloServer.applyMiddleware({app, cors: false})
-        const PORT = process.env.PORT || 4000
-        app.listen(PORT, () => console.log(`Server started on port ${PORT}. GraphQL server started on localhost:${PORT}${apolloServer.graphqlPath}`))
-    })
-
-    .catch((error) => console.log(error))
+const initApolloServer = async () => {
+    const apolloServer = new ApolloServer({
+        schema: await buildSchema({resolvers: [HelloResolver, UserResolver], validate: false}),
+        plugins: [
+            ApolloServerPluginLandingPageGraphQLPlayground(),
+            ApolloServerPluginDrainHttpServer({httpServer: app})
+        ],
+        context: ({req, res}) => ({req, res})
+    });
+    await apolloServer.start();
+    apolloServer.applyMiddleware({app, cors: false})
+    app.listen(PORT, () => console.log(`Server started on port ${PORT}. GraphQL server started on localhost:${PORT}${apolloServer.graphqlPath}`))
+}
+initApolloServer();
 
 
